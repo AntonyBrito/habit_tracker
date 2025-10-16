@@ -43,6 +43,7 @@ export default function AddHabitScreen({ navigation }) {
         id: Date.now().toString(),
         name: habitName,
         frequency: 'daily',
+        createdAt: new Date().toISOString(),
         completed: {},
         notificationId: notificationId,
         reminderTime: reminderTime.toISOString(),

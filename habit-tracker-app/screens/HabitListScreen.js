@@ -9,7 +9,6 @@ import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 
-// Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -28,9 +27,16 @@ export default function HabitListScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { fetchHabits(); }, []));
 
-  const updateHabitsInStorage = async (updatedHabits) => {
-    setHabits(updatedHabits);
-    await AsyncStorage.setItem('habits', JSON.stringify(updatedHabits));
+  const promptForNote = (callback) => {
+    Alert.prompt(
+      "Adicionar Nota",
+      "Deseja adicionar uma nota ao seu registro de hoje? (Opcional)",
+      [
+        { text: "Pular", onPress: () => callback(null), style: "cancel" },
+        { text: "Salvar Nota", onPress: (note) => callback(note) }
+      ],
+      "plain-text"
+    );
   };
 
   const takePhoto = async (habitId) => {
@@ -39,28 +45,28 @@ export default function HabitListScreen({ navigation }) {
       Alert.alert('Permissão Negada', 'Você precisa permitir o acesso à câmera.');
       return;
     }
-
     let result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.5 });
     if (!result.canceled) {
-      markHabitCompleted(habitId, result.assets[0].uri);
+      promptForNote((note) => {
+        markHabitCompleted(habitId, result.assets[0].uri, note);
+      });
     }
   };
 
-  const markHabitCompleted = (habitId, photoUri = null) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  const markHabitCompleted = async (habitId, photoUri = null, note = null) => {
     const today = new Date().toISOString().slice(0, 10);
     const updatedHabits = habits.map(habit => {
       if (habit.id === habitId) {
-        const newCompleted = { ...habit.completed, [today]: { done: true, photoUri } };
+        const newCompleted = { ...habit.completed, [today]: { done: true, photoUri, note } };
         return { ...habit, completed: newCompleted };
       }
       return habit;
     });
-    updateHabitsInStorage(updatedHabits);
+    setHabits(updatedHabits);
+    await AsyncStorage.setItem('habits', JSON.stringify(updatedHabits));
   };
 
-  const unmarkHabitCompleted = (habitId) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  const unmarkHabitCompleted = async (habitId) => {
     const today = new Date().toISOString().slice(0, 10);
     const updatedHabits = habits.map(habit => {
       if (habit.id === habitId) {
@@ -70,22 +76,32 @@ export default function HabitListScreen({ navigation }) {
       }
       return habit;
     });
-    updateHabitsInStorage(updatedHabits);
+    setHabits(updatedHabits);
+    await AsyncStorage.setItem('habits', JSON.stringify(updatedHabits));
   }
 
   const deleteHabit = async (habitId) => {
-    const habitToDelete = habits.find(h => h.id === habitId);
-    if (habitToDelete?.notificationId) {
-      await Notifications.cancelScheduledNotificationAsync(habitToDelete.notificationId);
+    try {
+      const habitToDelete = habits.find(h => h.id === habitId);
+      if (habitToDelete?.notificationId) {
+        await Notifications.cancelScheduledNotificationAsync(habitToDelete.notificationId);
+      }
+      const updatedHabits = habits.filter(h => h.id !== habitId);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setHabits(updatedHabits);
+      await AsyncStorage.setItem('habits', JSON.stringify(updatedHabits));
+    } catch (error) {
+      console.error("Failed to delete habit", error);
+      Alert.alert("Erro", "Não foi possível remover o hábito.");
     }
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    const updatedHabits = habits.filter(h => h.id !== habitId);
-    updateHabitsInStorage(updatedHabits);
   };
 
   const confirmDeleteHabit = (habitId) => {
-    Alert.alert('Remover Hábito', 'Tem certeza?',
-      [{ text: 'Cancelar' }, { text: 'Remover', onPress: () => deleteHabit(habitId), style: 'destructive' }],
+    Alert.alert(
+      'Remover Hábito',
+      'Você tem certeza que deseja remover este hábito permanentemente?',
+      [{ text: 'Cancelar', style: 'cancel' }, { text: 'Remover', onPress: () => deleteHabit(habitId), style: 'destructive' }],
+      { cancelable: true }
     );
   };
 
@@ -111,6 +127,12 @@ export default function HabitListScreen({ navigation }) {
         {isCompletedToday && completionData.photoUri && (
           <Image source={{ uri: completionData.photoUri }} style={styles.photo} />
         )}
+        {isCompletedToday && completionData.note && (
+            <View style={styles.noteContainer}>
+                <Feather name="book-open" size={16} color="#666" />
+                <Text style={styles.noteText}>{completionData.note}</Text>
+            </View>
+        )}
 
         <View style={styles.habitFooter}>
           {isCompletedToday ? (
@@ -120,7 +142,7 @@ export default function HabitListScreen({ navigation }) {
             </TouchableOpacity>
           ) : (
             <View style={styles.completionActions}>
-              <TouchableOpacity style={[styles.statusButton, styles.incompleteButton]} onPress={() => markHabitCompleted(item.id)}>
+              <TouchableOpacity style={[styles.statusButton, styles.incompleteButton]} onPress={() => promptForNote((note) => markHabitCompleted(item.id, null, note))}>
                 <Feather name="circle" size={20} color="white" />
                 <Text style={styles.statusButtonText}>Marcar</Text>
               </TouchableOpacity>
@@ -175,6 +197,19 @@ const styles = StyleSheet.create({
   actionsContainer: { flexDirection: 'row' },
   iconButton: { marginLeft: 15, padding: 5 },
   photo: { width: '100%', height: 200, borderRadius: 8, marginVertical: 10 },
+  noteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f2f5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  noteText: {
+    marginLeft: 10,
+    fontStyle: 'italic',
+    color: '#555',
+  },
   habitFooter: { marginTop: 10 },
   completionActions: { flexDirection: 'row', justifyContent: 'space-between' },
   statusButton: {
