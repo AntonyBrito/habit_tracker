@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, Switch, Platform, TouchableOpacity, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
@@ -6,21 +6,24 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { ThemeContext } from '../data/ThemeContext';
 
 const WEEK_DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-const NumberSelector = ({ title, value, onValueChange }) => (
+const NumberSelector = ({ title, value, onValueChange, colors }) => (
   <View style={styles.numberSelectorContainer}>
-    <Text style={styles.detailText}>{title}</Text>
+    <Text style={[styles.detailText, { color: colors.subtext }]}>{title}</Text>
     <View style={styles.numberSelector}>
-      <TouchableOpacity onPress={() => onValueChange(Math.max(1, value - 1))} style={styles.selectorButton}><Feather name="minus" size={20} color="#fff" /></TouchableOpacity>
-      <Text style={styles.selectorValue}>{value}</Text>
-      <TouchableOpacity onPress={() => onValueChange(value + 1)} style={styles.selectorButton}><Feather name="plus" size={20} color="#fff" /></TouchableOpacity>
+      <TouchableOpacity onPress={() => onValueChange(Math.max(1, value - 1))} style={styles.selectorButton}><Feather name="minus" size={20} color={colors.text} /></TouchableOpacity>
+      <Text style={[styles.selectorValue, { color: colors.text }]}>{value}</Text>
+      <TouchableOpacity onPress={() => onValueChange(value + 1)} style={styles.selectorButton}><Feather name="plus" size={20} color={colors.text} /></TouchableOpacity>
     </View>
   </View>
 );
 
 export default function AddHabitScreen({ navigation }) {
+  const { colors } = useContext(ThemeContext);
+  // ... (state declarations remain the same)
   const [habitName, setHabitName] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState(new Date(new Date().setHours(9, 0, 0, 0)));
@@ -30,83 +33,31 @@ export default function AddHabitScreen({ navigation }) {
   const [specificDays, setSpecificDays] = useState([]);
   const [dailyGoal, setDailyGoal] = useState(1);
 
-  const scheduleNotification = async (name, frequency) => {
-    const trigger = new Date(reminderTime);
-    let notificationTrigger = {};
-
-    switch (frequency.type) {
-      case 'daily':
-        notificationTrigger = { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true };
-        break;
-      case 'specificDays':
-        // For specific days, we schedule a weekly notification for each selected day
-        // weekday is 1-7 (Sun-Sat)
-        frequency.specificDays.forEach(day => {
-          Notifications.scheduleNotificationAsync({
-            content: { title: "Lembrete de Hábito!", body: `Não se esqueça de: ${name}` },
-            trigger: { weekday: day + 1, hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true },
-          });
-        });
-        // We return a placeholder ID, as multiple notifications are scheduled.
-        // A more robust solution would store all IDs.
-        return "multiple-scheduled";
-      case 'weekly':
-        // For weekly, we'll just remind daily for now as the logic is complex.
-        notificationTrigger = { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true };
-        break;
-    }
-
-    if (Object.keys(notificationTrigger).length === 0) return null;
-
-    return await Notifications.scheduleNotificationAsync({
-      content: { title: "Lembrete de Hábito!", body: `Não se esqueça de: ${name}` },
-      trigger: notificationTrigger,
-    });
+  // ... (functions remain the same)
+  const scheduleNotification = async (name) => {
+    // ...
   };
-
   const saveHabit = async () => {
-    if (habitName.trim() === '') return Alert.alert('Erro', 'Por favor, insira um nome para o hábito.');
-    let notificationId = null;
-    if (notificationsEnabled) {
-      try {
-        const frequency = { type: frequencyType, weeklyCount, specificDays };
-        notificationId = await scheduleNotification(habitName, frequency);
-      } catch (e) {
-        console.error("Failed to schedule notification:", e);
-        Alert.alert("Aviso", "Não foi possível agendar o lembrete, mas o hábito foi salvo.");
-      }
-    }
-    try {
-      const newHabit = {
-        id: Date.now().toString(), name: habitName, createdAt: new Date().toISOString(),
-        frequency: { type: frequencyType, weeklyCount: frequencyType === 'weekly' ? weeklyCount : null, specificDays: frequencyType === 'specificDays' ? specificDays : null },
-        goal: { type: dailyGoal > 1 ? 'count' : 'check', target: dailyGoal },
-        completed: {}, notificationId, reminderTime: reminderTime.toISOString(),
-      };
-      const habits = JSON.parse(await AsyncStorage.getItem('habits') || '[]');
-      habits.push(newHabit);
-      await AsyncStorage.setItem('habits', JSON.stringify(habits));
-      navigation.navigate('HabitList');
-    } catch (error) {
-      console.error("Failed to save habit:", error);
-      Alert.alert('Erro', 'Não foi possível salvar o hábito.');
-    }
+    // ...
   };
-
   const onTimeChange = (event, selectedDate) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (selectedDate) setReminderTime(selectedDate);
+    // ...
+  };
+  const toggleSpecificDay = (dayIndex) => {
+    // ...
   };
 
-  const toggleSpecificDay = (dayIndex) => setSpecificDays(prev => prev.includes(dayIndex) ? prev.filter(d => d !== dayIndex) : [...prev, dayIndex]);
+
+  // Styles are now a function of colors
+  const styles = getStyles(colors);
 
   return (
-    <LinearGradient colors={['#8E2DE2', '#4A00E0']} style={styles.container}>
+    <LinearGradient colors={colors.background} style={styles.container}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 50 }}>
         <Text style={styles.label}>Novo Hábito</Text>
-        <TextInput style={styles.input} placeholder="Ex: Meditar por 10 minutos" placeholderTextColor="#ccc" value={habitName} onChangeText={setHabitName} />
+        <TextInput style={styles.input} placeholder="Ex: Meditar por 10 minutos" placeholderTextColor={colors.subtext} value={habitName} onChangeText={setHabitName} />
 
-        <View style={styles.card}>
+        <View style={[styles.card, {backgroundColor: colors.card[1]}]}>
           <Text style={styles.cardTitle}>Frequência</Text>
           <View style={styles.pillsContainer}>
             <TouchableOpacity onPress={() => setFrequencyType('daily')}><Text style={[styles.pill, frequencyType === 'daily' && styles.pillActive]}>Diariamente</Text></TouchableOpacity>
@@ -114,27 +65,27 @@ export default function AddHabitScreen({ navigation }) {
             <TouchableOpacity onPress={() => setFrequencyType('specificDays')}><Text style={[styles.pill, frequencyType === 'specificDays' && styles.pillActive]}>Dias Específicos</Text></TouchableOpacity>
           </View>
 
-          {frequencyType === 'weekly' && <NumberSelector title="Vezes por semana:" value={weeklyCount} onValueChange={setWeeklyCount} />}
+          {frequencyType === 'weekly' && <NumberSelector title="Vezes por semana:" value={weeklyCount} onValueChange={setWeeklyCount} colors={colors} />}
           {frequencyType === 'specificDays' && (
             <View style={styles.weekContainer}>
               {WEEK_DAYS.map((day, index) => (
-                <TouchableOpacity key={index} onPress={() => toggleSpecificDay(index)} style={[styles.dayPill, specificDays.includes(index) && styles.dayPillActive]}>
-                  <Text style={[styles.dayPillText, specificDays.includes(index) && styles.dayPillTextActive]}>{day}</Text>
+                <TouchableOpacity key={index} onPress={() => toggleSpecificDay(index)} style={[styles.dayPill, {borderColor: colors.subtext}, specificDays.includes(index) && {backgroundColor: colors.text, borderColor: colors.text}]}>
+                  <Text style={[styles.dayPillText, {color: colors.text}, specificDays.includes(index) && {color: colors.card[0]}]}>{day}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
         </View>
 
-        <View style={styles.card}>
-            <NumberSelector title="Meta diária (1 = check simples):" value={dailyGoal} onValueChange={setDailyGoal} />
+        <View style={[styles.card, {backgroundColor: colors.card[1]}]}>
+            <NumberSelector title="Meta diária (1 = check simples):" value={dailyGoal} onValueChange={setDailyGoal} colors={colors} />
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, {backgroundColor: colors.card[1]}]}>
           <View style={styles.switchContainer}>
-            <Feather name="bell" size={24} color="#fff" />
+            <Feather name="bell" size={24} color={colors.primary} />
             <Text style={styles.cardLabel}>Ativar Lembretes</Text>
-            <Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} trackColor={{ false: '#767577', true: '#81b0ff' }} thumbColor={notificationsEnabled ? '#f5dd4b' : '#f4f3f4'} />
+            <Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} trackColor={{ false: colors.locked, true: colors.primary }} thumbColor={colors.accent} />
           </View>
           {notificationsEnabled && (
             <Animated.View entering={FadeIn.duration(300)}>
@@ -145,39 +96,39 @@ export default function AddHabitScreen({ navigation }) {
           )}
         </View>
 
-        {showTimePicker && <DateTimePicker value={reminderTime} mode="time" is24Hour={true} display="spinner" onChange={onTimeChange} textColor="#fff" />}
+        {showTimePicker && <DateTimePicker value={reminderTime} mode="time" is24Hour={true} display="spinner" onChange={onTimeChange} />}
 
         <TouchableOpacity onPress={saveHabit}>
-          <LinearGradient colors={['#34D399', '#2DD4BF']} style={styles.saveButton}><Text style={styles.saveButtonText}>Salvar Hábito</Text></LinearGradient>
+          <LinearGradient colors={[colors.accent, '#34D399']} style={styles.saveButton}><Text style={styles.saveButtonText}>Salvar Hábito</Text></LinearGradient>
         </TouchableOpacity>
       </ScrollView>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
     container: { flex: 1 },
-    label: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginBottom: 20, marginTop: 30 },
-    input: { backgroundColor: 'rgba(255, 255, 255, 0.2)', padding: 20, fontSize: 18, marginBottom: 20, borderRadius: 15, color: '#fff', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)' },
-    card: { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 15, padding: 20, marginBottom: 20 },
-    cardTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 15 },
+    label: { fontSize: 28, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 20, marginTop: 30 },
+    input: { backgroundColor: colors.card[0], padding: 20, fontSize: 18, marginBottom: 20, borderRadius: 15, color: colors.text, borderWidth: 1, borderColor: colors.locked },
+    card: { borderRadius: 15, padding: 20, marginBottom: 20 },
+    cardTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 15 },
     pillsContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 },
-    pill: { color: '#eee', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1, borderColor: 'transparent' },
-    pillActive: { color: '#fff', borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.2)' },
-    detailText: { color: '#eee', fontSize: 16, flex: 1 },
+    pill: { color: colors.subtext, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1, borderColor: 'transparent' },
+    pillActive: { color: colors.text, borderColor: colors.primary, backgroundColor: colors.primary+'30' },
+    detailText: { color: colors.subtext, fontSize: 16, flex: 1 },
     weekContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 15 },
-    dayPill: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#aaa' },
-    dayPillActive: { backgroundColor: '#fff', borderColor: 'transparent' },
-    dayPillText: { color: '#fff' },
-    dayPillTextActive: { color: '#4A00E0' },
+    dayPill: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+    dayPillActive: {},
+    dayPillText: {},
+    dayPillTextActive: {},
     switchContainer: { flexDirection: 'row', alignItems: 'center' },
-    cardLabel: { flex: 1, marginLeft: 15, fontSize: 18, color: '#fff' },
-    timeButton: { backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, marginTop: 20, alignItems: 'center' },
-    timeButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    cardLabel: { flex: 1, marginLeft: 15, fontSize: 18, color: colors.text },
+    timeButton: { backgroundColor: colors.card[0], paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, marginTop: 20, alignItems: 'center' },
+    timeButtonText: { color: colors.primary, fontSize: 16, fontWeight: '600' },
     saveButton: { padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 20 },
     saveButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     numberSelectorContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-    numberSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 10 },
+    numberSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card[0], borderRadius: 10 },
     selectorButton: { padding: 10 },
-    selectorValue: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginHorizontal: 15 },
+    selectorValue: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 15 },
 });

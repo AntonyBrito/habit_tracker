@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useContext } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Image, UIManager, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -8,6 +8,8 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Layout, FadeIn, FadeOut } from 'react-native-reanimated';
 import dayjs from 'dayjs';
+import { checkAndUnlockAchievements } from '../data/AchievementManager';
+import { ThemeContext } from '../data/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -23,6 +25,7 @@ const isHabitDueToday = (habit) => {
 };
 
 export default function HabitListScreen({ navigation }) {
+  const { colors } = useContext(ThemeContext);
   const [habits, setHabits] = useState([]);
 
   const fetchHabits = async () => {
@@ -39,6 +42,7 @@ export default function HabitListScreen({ navigation }) {
     const allHabits = JSON.parse(await AsyncStorage.getItem('habits') || '[]');
     const newAllHabits = allHabits.map(h => updatedHabits.find(uh => uh.id === h.id) || h);
     await AsyncStorage.setItem('habits', JSON.stringify(newAllHabits));
+    checkAndUnlockAchievements();
   };
 
   const handleCounterChange = (habitId, change) => {
@@ -47,46 +51,16 @@ export default function HabitListScreen({ navigation }) {
       if (h.id === habitId) {
         const currentCount = h.completed?.[today]?.count || 0;
         const newCount = Math.max(0, currentCount + change);
-        return {
-          ...h,
-          completed: { ...h.completed, [today]: { ...h.completed?.[today], count: newCount, done: newCount >= h.goal.target } }
-        };
+        return { ...h, completed: { ...h.completed, [today]: { ...h.completed?.[today], count: newCount, done: newCount >= h.goal.target } } };
       }
       return h;
     });
     updateHabitState(updatedHabits);
   };
 
-  const promptForNote = (callback) => {
-    Alert.prompt("Adicionar Nota", "Deseja adicionar uma nota? (Opcional)",
-      [{ text: "Pular", onPress: () => callback(null), style: "cancel" }, { text: "Salvar", onPress: (note) => callback(note) }],
-      "plain-text"
-    );
-  };
-
-  const takePhoto = async (habitId) => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return Alert.alert('Permissão Negada', 'Acesso à câmera é necessário.');
-    let result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.5 });
-    if (!result.canceled) {
-      promptForNote((note) => markHabitAsDone(habitId, result.assets[0].uri, note));
-    }
-  };
-
-  const pickImage = async (habitId) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return Alert.alert('Permissão Negada', 'Acesso à galeria é necessário.');
-    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.5 });
-    if (!result.canceled) {
-      promptForNote((note) => markHabitAsDone(habitId, result.assets[0].uri, note));
-    }
-  };
-
-  const markHabitAsDone = (habitId, photoUri = null, note = null) => {
+  const markHabitAsDone = (habitId) => {
     const today = dayjs().format('YYYY-MM-DD');
-    const updatedHabits = habits.map(h =>
-      h.id === habitId ? { ...h, completed: { ...h.completed, [today]: { ...h.completed?.[today], done: true, photoUri, note } } } : h
-    );
+    const updatedHabits = habits.map(h => h.id === habitId ? { ...h, completed: { ...h.completed, [today]: { ...h.completed?.[today], done: true } } } : h);
     updateHabitState(updatedHabits);
   };
 
@@ -101,15 +75,6 @@ export default function HabitListScreen({ navigation }) {
         return h;
     });
     updateHabitState(updatedHabits);
-  };
-
-  const showCompletionOptions = (habitId) => {
-    Alert.alert("Concluir Hábito", "Como você deseja registrar a conclusão?", [
-      { text: "Apenas Marcar", onPress: () => promptForNote((note) => markHabitAsDone(habitId, null, note)) },
-      { text: "Tirar Foto", onPress: () => takePhoto(habitId) },
-      { text: "Escolher da Galeria", onPress: () => pickImage(habitId) },
-      { text: "Cancelar", style: "cancel" }
-    ]);
   };
 
   const deleteHabit = async (habitId) => {
@@ -136,11 +101,11 @@ export default function HabitListScreen({ navigation }) {
 
     return (
       <Animated.View entering={FadeIn.duration(500)} exiting={FadeOut.duration(300)} layout={Layout.springify()}>
-        <LinearGradient colors={isCompletedToday ? ['#6EE7B7', '#34D399'] : ['#FFFFFF', '#F0F2F5']} style={styles.habitCard}>
+        <LinearGradient colors={isCompletedToday ? [colors.accent, '#34D399'] : colors.card} style={styles.habitCard}>
           <View style={styles.habitHeader}>
-            <Text style={[styles.habitName, isCompletedToday && styles.completedText]}>{item.name}</Text>
+            <Text style={[styles.habitName, { color: isCompletedToday ? '#fff' : colors.text }]}>{item.name}</Text>
             <View style={styles.actionsContainer}>
-              <TouchableOpacity onPress={() => navigation.navigate('EditHabit', { habitId: item.id })} style={styles.iconButton}><Feather name="edit-2" size={20} color={isCompletedToday ? '#fff' : '#666'} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('EditHabit', { habitId: item.id })} style={styles.iconButton}><Feather name="edit-2" size={20} color={isCompletedToday ? '#fff' : colors.subtext} /></TouchableOpacity>
               <TouchableOpacity onPress={() => confirmDeleteHabit(item.id)} style={styles.iconButton}><Feather name="trash-2" size={20} color={isCompletedToday ? '#fff' : '#E53935'} /></TouchableOpacity>
             </View>
           </View>
@@ -148,19 +113,17 @@ export default function HabitListScreen({ navigation }) {
           <View style={styles.habitFooter}>
             {isCompletedToday ? (
                 <TouchableOpacity style={styles.statusButton} onPress={() => unmarkHabit(item.id)}>
-                    <Feather name="check-circle" size={24} color="white" />
-                    <Text style={styles.statusButtonText}>Hábito Concluído!</Text>
+                    <Feather name="check-circle" size={24} color="white" /><Text style={styles.statusButtonText}>Hábito Concluído!</Text>
                 </TouchableOpacity>
             ) : isCheckHabit ? (
-                <TouchableOpacity style={styles.actionButton} onPress={() => showCompletionOptions(item.id)}>
-                    <Feather name="check" size={20} color="#34D399" />
-                    <Text style={styles.actionButtonText}>Marcar como Feito</Text>
+                <TouchableOpacity style={styles.actionButton} onPress={() => markHabitAsDone(item.id)}>
+                    <Feather name="check" size={20} color={colors.accent} /><Text style={[styles.actionButtonText, { color: colors.text }]}>Marcar como Feito</Text>
                 </TouchableOpacity>
             ) : (
                 <View style={styles.counterContainer}>
-                    <TouchableOpacity onPress={() => handleCounterChange(item.id, -1)} style={styles.counterButton}><Feather name="minus" size={24} color="#5856D6" /></TouchableOpacity>
-                    <Text style={styles.counterText}>{currentCount} / {targetCount}</Text>
-                    <TouchableOpacity onPress={() => handleCounterChange(item.id, 1)} style={styles.counterButton}><Feather name="plus" size={24} color="#5856D6" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleCounterChange(item.id, -1)} style={styles.counterButton}><Feather name="minus" size={24} color={colors.primary} /></TouchableOpacity>
+                    <Text style={[styles.counterText, { color: colors.text }]}>{currentCount} / {targetCount}</Text>
+                    <TouchableOpacity onPress={() => handleCounterChange(item.id, 1)} style={styles.counterButton}><Feather name="plus" size={24} color={colors.primary} /></TouchableOpacity>
                 </View>
             )}
           </View>
@@ -170,18 +133,18 @@ export default function HabitListScreen({ navigation }) {
   };
 
   return (
-    <LinearGradient colors={['#8E2DE2', '#4A00E0']} style={styles.container}>
-      <Text style={styles.title}>Hábitos de Hoje</Text>
+    <LinearGradient colors={colors.background} style={styles.container}>
+      <Text style={[styles.title, { color: colors.text }]}>Hábitos de Hoje</Text>
       <FlatList
         data={habits}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.emptyText}>Nenhum hábito para hoje!</Text></View>}
+        ListEmptyComponent={<View style={styles.emptyContainer}><Text style={[styles.emptyText, { color: colors.subtext }]}>Nenhum hábito para hoje!</Text></View>}
         contentContainerStyle={styles.listContentContainer}
       />
       <View style={styles.addButtonContainer}>
         <TouchableOpacity onPress={() => navigation.navigate('AddHabit')}>
-          <LinearGradient colors={['#A855F7', '#8B5CF6']} style={styles.addButton}><Feather name="plus" size={24} color="white" /><Text style={styles.addButtonText}>Novo Hábito</Text></LinearGradient>
+          <LinearGradient colors={[colors.primary, '#8B5CF6']} style={styles.addButton}><Feather name="plus" size={24} color="white" /><Text style={styles.addButtonText}>Novo Hábito</Text></LinearGradient>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -190,24 +153,24 @@ export default function HabitListScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#fff', textAlign: 'center', paddingVertical: 20, paddingTop: 50 },
+  title: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', paddingVertical: 20, paddingTop: 50 },
   listContentContainer: { paddingHorizontal: 10, paddingBottom: 100 },
   habitCard: { borderRadius: 15, padding: 20, marginVertical: 8, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5 },
   habitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  habitName: { fontSize: 20, fontWeight: '600', color: '#333', flex: 1 },
-  completedText: { color: '#fff', textDecorationLine: 'line-through' },
+  habitName: { fontSize: 20, fontWeight: '600', flex: 1 },
+  completedText: { textDecorationLine: 'line-through' },
   actionsContainer: { flexDirection: 'row' },
   iconButton: { marginLeft: 15, padding: 5 },
-  habitFooter: { marginTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 10 },
+  habitFooter: { marginTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 10 },
   statusButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
   statusButtonText: { color: 'white', fontWeight: 'bold', marginLeft: 10, fontSize: 16 },
-  actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 },
-  actionButtonText: { marginLeft: 8, color: '#333', fontWeight: '500' },
-  counterContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingTop: 15, marginTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+  actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 10 },
+  actionButtonText: { marginLeft: 8, fontWeight: '500' },
+  counterContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingTop: 15, marginTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
   counterButton: { padding: 10 },
-  counterText: { fontSize: 24, fontWeight: 'bold', color: '#333' },
+  counterText: { fontSize: 24, fontWeight: 'bold' },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
-  emptyText: { fontSize: 18, color: '#fff', opacity: 0.8 },
+  emptyText: { fontSize: 18, opacity: 0.8 },
   addButtonContainer: { position: 'absolute', bottom: 20, left: 20, right: 20 },
   addButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 15, borderRadius: 15, elevation: 8, shadowColor: '#000', shadowRadius: 8, shadowOpacity: 0.3 },
   addButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
