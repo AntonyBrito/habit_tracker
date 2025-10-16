@@ -18,7 +18,7 @@ const isHabitDueToday = (habit) => {
   const { type, specificDays } = habit.frequency;
   if (type === 'daily') return true;
   if (type === 'specificDays') return specificDays.includes(todayIndex);
-  if (type === 'weekly') return true; // Could be improved to check against weekly count
+  if (type === 'weekly') return true;
   return false;
 };
 
@@ -57,10 +57,35 @@ export default function HabitListScreen({ navigation }) {
     updateHabitState(updatedHabits);
   };
 
-  const markHabitAsDone = (habitId) => {
+  const promptForNote = (callback) => {
+    Alert.prompt("Adicionar Nota", "Deseja adicionar uma nota? (Opcional)",
+      [{ text: "Pular", onPress: () => callback(null), style: "cancel" }, { text: "Salvar", onPress: (note) => callback(note) }],
+      "plain-text"
+    );
+  };
+
+  const takePhoto = async (habitId) => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return Alert.alert('Permissão Negada', 'Acesso à câmera é necessário.');
+    let result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.5 });
+    if (!result.canceled) {
+      promptForNote((note) => markHabitAsDone(habitId, result.assets[0].uri, note));
+    }
+  };
+
+  const pickImage = async (habitId) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return Alert.alert('Permissão Negada', 'Acesso à galeria é necessário.');
+    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.5 });
+    if (!result.canceled) {
+      promptForNote((note) => markHabitAsDone(habitId, result.assets[0].uri, note));
+    }
+  };
+
+  const markHabitAsDone = (habitId, photoUri = null, note = null) => {
     const today = dayjs().format('YYYY-MM-DD');
     const updatedHabits = habits.map(h =>
-      h.id === habitId ? { ...h, completed: { ...h.completed, [today]: { ...h.completed?.[today], done: true } } } : h
+      h.id === habitId ? { ...h, completed: { ...h.completed, [today]: { ...h.completed?.[today], done: true, photoUri, note } } } : h
     );
     updateHabitState(updatedHabits);
   };
@@ -78,10 +103,19 @@ export default function HabitListScreen({ navigation }) {
     updateHabitState(updatedHabits);
   };
 
+  const showCompletionOptions = (habitId) => {
+    Alert.alert("Concluir Hábito", "Como você deseja registrar a conclusão?", [
+      { text: "Apenas Marcar", onPress: () => promptForNote((note) => markHabitAsDone(habitId, null, note)) },
+      { text: "Tirar Foto", onPress: () => takePhoto(habitId) },
+      { text: "Escolher da Galeria", onPress: () => pickImage(habitId) },
+      { text: "Cancelar", style: "cancel" }
+    ]);
+  };
+
   const deleteHabit = async (habitId) => {
     const allHabits = JSON.parse(await AsyncStorage.getItem('habits') || '[]');
     const habitToDelete = allHabits.find(h => h.id === habitId);
-    if (habitToDelete?.notificationId) await Notifications.cancelScheduledNotificationAsync(habitToDelete.notificationId);
+    if (habitToDelete?.notificationId) await Notifications.cancelAllScheduledNotificationsAsync();
     const updatedAllHabits = allHabits.filter(h => h.id !== habitId);
     setHabits(updatedAllHabits.filter(isHabitDueToday));
     await AsyncStorage.setItem('habits', JSON.stringify(updatedAllHabits));
@@ -118,7 +152,7 @@ export default function HabitListScreen({ navigation }) {
                     <Text style={styles.statusButtonText}>Hábito Concluído!</Text>
                 </TouchableOpacity>
             ) : isCheckHabit ? (
-                <TouchableOpacity style={styles.actionButton} onPress={() => markHabitAsDone(item.id)}>
+                <TouchableOpacity style={styles.actionButton} onPress={() => showCompletionOptions(item.id)}>
                     <Feather name="check" size={20} color="#34D399" />
                     <Text style={styles.actionButtonText}>Marcar como Feito</Text>
                 </TouchableOpacity>

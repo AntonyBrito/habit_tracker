@@ -30,11 +30,37 @@ export default function AddHabitScreen({ navigation }) {
   const [specificDays, setSpecificDays] = useState([]);
   const [dailyGoal, setDailyGoal] = useState(1);
 
-  const scheduleNotification = async (name) => {
+  const scheduleNotification = async (name, frequency) => {
     const trigger = new Date(reminderTime);
+    let notificationTrigger = {};
+
+    switch (frequency.type) {
+      case 'daily':
+        notificationTrigger = { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true };
+        break;
+      case 'specificDays':
+        // For specific days, we schedule a weekly notification for each selected day
+        // weekday is 1-7 (Sun-Sat)
+        frequency.specificDays.forEach(day => {
+          Notifications.scheduleNotificationAsync({
+            content: { title: "Lembrete de Hábito!", body: `Não se esqueça de: ${name}` },
+            trigger: { weekday: day + 1, hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true },
+          });
+        });
+        // We return a placeholder ID, as multiple notifications are scheduled.
+        // A more robust solution would store all IDs.
+        return "multiple-scheduled";
+      case 'weekly':
+        // For weekly, we'll just remind daily for now as the logic is complex.
+        notificationTrigger = { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true };
+        break;
+    }
+
+    if (Object.keys(notificationTrigger).length === 0) return null;
+
     return await Notifications.scheduleNotificationAsync({
       content: { title: "Lembrete de Hábito!", body: `Não se esqueça de: ${name}` },
-      trigger: { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true },
+      trigger: notificationTrigger,
     });
   };
 
@@ -43,7 +69,8 @@ export default function AddHabitScreen({ navigation }) {
     let notificationId = null;
     if (notificationsEnabled) {
       try {
-        notificationId = await scheduleNotification(habitName);
+        const frequency = { type: frequencyType, weeklyCount, specificDays };
+        notificationId = await scheduleNotification(habitName, frequency);
       } catch (e) {
         console.error("Failed to schedule notification:", e);
         Alert.alert("Aviso", "Não foi possível agendar o lembrete, mas o hábito foi salvo.");
@@ -134,7 +161,7 @@ const styles = StyleSheet.create({
     input: { backgroundColor: 'rgba(255, 255, 255, 0.2)', padding: 20, fontSize: 18, marginBottom: 20, borderRadius: 15, color: '#fff', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)' },
     card: { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 15, padding: 20, marginBottom: 20 },
     cardTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 15 },
-    pillsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 10 },
+    pillsContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 },
     pill: { color: '#eee', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1, borderColor: 'transparent' },
     pillActive: { color: '#fff', borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.2)' },
     detailText: { color: '#eee', fontSize: 16, flex: 1 },

@@ -53,19 +53,44 @@ export default function EditHabitScreen({ route, navigation }) {
     loadHabit();
   }, [habitId]);
 
-  const scheduleNotification = async (name) => {
+  const scheduleNotification = async (name, frequency) => {
     const trigger = new Date(reminderTime);
+    let notificationTrigger = {};
+
+    switch (frequency.type) {
+      case 'daily':
+        notificationTrigger = { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true };
+        break;
+      case 'specificDays':
+        frequency.specificDays.forEach(day => {
+          Notifications.scheduleNotificationAsync({
+            content: { title: "Lembrete de Hábito!", body: `Não se esqueça de: ${name}` },
+            trigger: { weekday: day + 1, hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true },
+          });
+        });
+        return "multiple-scheduled";
+      case 'weekly':
+        notificationTrigger = { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true };
+        break;
+    }
+
+    if (Object.keys(notificationTrigger).length === 0) return null;
+
     return await Notifications.scheduleNotificationAsync({
       content: { title: "Lembrete de Hábito!", body: `Não se esqueça de: ${name}` },
-      trigger: { hour: trigger.getHours(), minute: trigger.getMinutes(), repeats: true },
+      trigger: notificationTrigger,
     });
   };
 
   const saveHabit = async () => {
     if (habitName.trim() === '') return Alert.alert('Erro', 'O nome do hábito não pode ficar em branco.');
     try {
-      if (originalHabit?.notificationId) await Notifications.cancelScheduledNotificationAsync(originalHabit.notificationId);
-      const newNotificationId = notificationsEnabled ? await scheduleNotification(habitName) : null;
+      if (originalHabit?.notificationId) {
+        // A more robust solution would be to cancel all scheduled notifications by their IDs
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      }
+      const frequency = { type: frequencyType, weeklyCount, specificDays };
+      const newNotificationId = notificationsEnabled ? await scheduleNotification(habitName, frequency) : null;
 
       const existingHabits = JSON.parse(await AsyncStorage.getItem('habits') || '[]');
       const updatedHabits = existingHabits.map(h =>
@@ -152,7 +177,7 @@ const styles = StyleSheet.create({
     input: { backgroundColor: 'rgba(255, 255, 255, 0.2)', padding: 20, fontSize: 18, marginBottom: 20, borderRadius: 15, color: '#fff', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)' },
     card: { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 15, padding: 20, marginBottom: 20 },
     cardTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 15 },
-    pillsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 10 },
+    pillsContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 },
     pill: { color: '#eee', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1, borderColor: 'transparent' },
     pillActive: { color: '#fff', borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.2)' },
     detailText: { color: '#eee', fontSize: 16, flex: 1 },

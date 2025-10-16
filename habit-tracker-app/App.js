@@ -8,6 +8,7 @@ import HabitListScreen from './screens/HabitListScreen';
 import AddHabitScreen from './screens/AddHabitScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import EditHabitScreen from './screens/EditHabitScreen';
+import DashboardScreen from './screens/DashboardScreen';
 
 const Drawer = createDrawerNavigator();
 
@@ -35,8 +36,9 @@ export default function App() {
     <NavigationContainer>
       <Drawer.Navigator initialRouteName="HabitList">
         <Drawer.Screen name="HabitList" component={HabitListScreen} options={{ title: 'Meus Hábitos' }} />
-        <Drawer.Screen name="AddHabit" component={AddHabitScreen} options={{ title: 'Adicionar Hábito' }} />
+        <Drawer.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Dashboard' }} />
         <Drawer.Screen name="Progress" component={ProgressScreen} options={{ title: 'Meu Progresso' }} />
+        <Drawer.Screen name="AddHabit" component={AddHabitScreen} options={{ title: 'Adicionar Hábito', drawerLabel: () => null }} />
         <Drawer.Screen
           name="EditHabit"
           component={EditHabitScreen}
