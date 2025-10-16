@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, Image, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { Feather } from '@expo/vector-icons';
 
 export default function ProgressScreen() {
   const [habits, setHabits] = useState([]);
@@ -22,18 +23,22 @@ export default function ProgressScreen() {
     const completedEntries = item.completed ? Object.entries(item.completed) : [];
     const completedDays = completedEntries.length;
     const photos = completedEntries
-      .filter(([date, data]) => data.photoUri)
+      .filter(([, data]) => data.photoUri)
       .map(([date, data]) => ({ date, uri: data.photoUri }));
 
     return (
-      <View style={styles.habitItem}>
+      <View style={styles.habitCard}>
         <Text style={styles.habitName}>{item.name}</Text>
-        <Text style={styles.progressText}>
-          Cumprido {completedDays} dia(s) no total.
-        </Text>
+        <View style={styles.progressContainer}>
+          <Feather name="trending-up" size={20} color="#007AFF" />
+          <Text style={styles.progressText}>
+            Cumprido {completedDays} dia(s) no total.
+          </Text>
+        </View>
+
         {photos.length > 0 && (
-          <View>
-            <Text style={styles.photoTitle}>Diário de Fotos:</Text>
+          <View style={styles.photoSection}>
+            <Text style={styles.photoTitle}>Diário de Fotos</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {photos.map(photo => (
                 <View key={photo.date} style={styles.photoContainer}>
@@ -50,26 +55,91 @@ export default function ProgressScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Resumo de Progresso</Text>
+      <Text style={styles.title}>Meu Progresso</Text>
       <FlatList
         data={habits}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.emptyText}>Nenhum hábito para mostrar.</Text>}
+        ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.emptyText}>Sem progresso para mostrar ainda.</Text></View>}
+        contentContainerStyle={styles.listContentContainer}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  habitItem: { backgroundColor: '#f9f9f9', padding: 20, marginVertical: 8, borderRadius: 5, borderLeftWidth: 5, borderLeftColor: '#1E90FF' },
-  habitName: { fontSize: 18, fontWeight: 'bold' },
-  progressText: { fontSize: 16, marginTop: 5, color: '#333' },
-  emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
-  photoTitle: { fontSize: 16, fontWeight: 'bold', marginTop: 15, marginBottom: 5 },
-  photoContainer: { marginRight: 10, alignItems: 'center' },
-  photo: { width: 100, height: 100, borderRadius: 5 },
-  photoDate: { fontSize: 12, color: '#666', marginTop: 2 },
+  container: {
+    flex: 1,
+    backgroundColor: '#f0f2f5',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    margin: 20,
+    marginBottom: 10,
+    textAlign: 'center',
+    color: '#333',
+  },
+  listContentContainer: {
+    paddingHorizontal: 10,
+    paddingBottom: 20,
+  },
+  habitCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    marginVertical: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  habitName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  progressText: {
+    fontSize: 16,
+    marginLeft: 8,
+    color: '#555',
+  },
+  photoSection: {
+    marginTop: 15,
+  },
+  photoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  photoContainer: {
+    marginRight: 10,
+    alignItems: 'center'
+  },
+  photo: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#eee',
+  },
+  photoDate: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#888'
+  },
 });

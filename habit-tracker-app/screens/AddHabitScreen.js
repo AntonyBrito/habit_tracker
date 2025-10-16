@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, Switch, Platform } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, Switch, Platform, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Feather } from '@expo/vector-icons';
 
 export default function AddHabitScreen({ navigation }) {
   const [habitName, setHabitName] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState(new Date(new Date().setHours(9, 0, 0, 0))); // Default 9:00 AM
+  const [reminderTime, setReminderTime] = useState(new Date(new Date().setHours(9, 0, 0, 0)));
   const [showTimePicker, setShowTimePicker] = useState(false);
 
   const scheduleNotification = async (habitName) => {
     const trigger = new Date(reminderTime);
-    trigger.setSeconds(0);
-
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: "Lembrete de Hábito!",
@@ -70,28 +69,37 @@ export default function AddHabitScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Nome do Hábito:</Text>
+      <Text style={styles.label}>Qual hábito você quer criar?</Text>
       <TextInput
         style={styles.input}
-        placeholder="Ex: Beber 2L de água"
+        placeholder="Ex: Ler 10 páginas de um livro"
         value={habitName}
         onChangeText={setHabitName}
       />
 
-      <View style={styles.switchContainer}>
-        <Text style={styles.label}>Ativar Lembretes?</Text>
-        <Switch
-          value={notificationsEnabled}
-          onValueChange={setNotificationsEnabled}
-        />
-      </View>
-
-      {notificationsEnabled && (
-        <View>
-          <Button onPress={() => setShowTimePicker(true)} title="Escolher Horário do Lembrete" />
-          <Text style={styles.timeText}>Lembrete às: {reminderTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+      <View style={styles.card}>
+        <View style={styles.switchContainer}>
+          <Feather name="bell" size={24} color="#5856D6" />
+          <Text style={styles.cardLabel}>Ativar Lembretes</Text>
+          <Switch
+            trackColor={{ false: '#767577', true: '#81b0ff' }}
+            thumbColor={notificationsEnabled ? '#5856D6' : '#f4f3f4'}
+            ios_backgroundColor="#3e3e3e"
+            value={notificationsEnabled}
+            onValueChange={setNotificationsEnabled}
+          />
         </View>
-      )}
+
+        {notificationsEnabled && (
+          <View style={styles.timePickerContainer}>
+            <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.timeButton}>
+              <Text style={styles.timeButtonText}>
+                Lembrar às: {reminderTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       {showTimePicker && (
         <DateTimePicker
@@ -104,18 +112,72 @@ export default function AddHabitScreen({ navigation }) {
         />
       )}
 
-      <View style={styles.saveButton}>
-        <Button title="Salvar Hábito" onPress={saveHabit} />
+      <View style={styles.saveButtonContainer}>
+        <Button title="Salvar Hábito" onPress={saveHabit} color="#007AFF" />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  label: { fontSize: 18, marginBottom: 10 },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, fontSize: 16, marginBottom: 20, borderRadius: 5 },
-  switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  timeText: { textAlign: 'center', fontSize: 16, marginVertical: 10 },
-  saveButton: { marginTop: 20 },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#f0f2f5',
+  },
+  label: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 20,
+    borderRadius: 10,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardLabel: {
+    flex: 1,
+    marginLeft: 15,
+    fontSize: 18,
+    color: '#333'
+  },
+  timePickerContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  timeButton: {
+    backgroundColor: '#eef2ff',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  timeButtonText: {
+    color: '#5856D6',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButtonContainer: {
+    marginTop: 'auto',
+    paddingBottom: 20,
+  },
 });
