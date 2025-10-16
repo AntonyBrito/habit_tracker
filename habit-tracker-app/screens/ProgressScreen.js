@@ -1,15 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Image, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
-import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import dayjs from 'dayjs';
+import Animated, { Layout, FadeIn, FadeOut } from 'react-native-reanimated';
 
 const calculateStreaks = (completedDates) => {
-  if (completedDates.length === 0) {
-    return { currentStreak: 0, bestStreak: 0 };
-  }
+  if (completedDates.length === 0) return { currentStreak: 0, bestStreak: 0 };
   const sortedDates = completedDates.sort((a, b) => new Date(a) - new Date(b));
   let bestStreak = 1, currentStreak = 1;
   for (let i = 1; i < sortedDates.length; i++) {
@@ -20,9 +19,7 @@ const calculateStreaks = (completedDates) => {
     } else {
       currentStreak = 1;
     }
-    if (currentStreak > bestStreak) {
-      bestStreak = currentStreak;
-    }
+    if (currentStreak > bestStreak) bestStreak = currentStreak;
   }
   const lastCompletion = dayjs(sortedDates[sortedDates.length - 1]);
   if (!lastCompletion.isSame(dayjs(), 'day') && !lastCompletion.isSame(dayjs().subtract(1, 'day'), 'day')) {
@@ -54,42 +51,44 @@ export default function ProgressScreen() {
     const successRate = completedDates.length > 0 ? ((completedDates.length / totalDaysSinceCreation) * 100).toFixed(0) : 0;
 
     const markedDates = completedEntries.reduce((acc, [date]) => {
-      acc[date] = { selected: true, selectedColor: '#34C759' };
+      acc[date] = { selected: true, selectedColor: '#10B981' };
       return acc;
     }, {});
 
-    const entriesWithNotesOrPhotos = completedEntries
+    const entriesWithContent = completedEntries
       .filter(([, data]) => data.photoUri || data.note)
       .sort((a, b) => new Date(b[0]) - new Date(a[0]));
 
     return (
-      <View style={styles.habitCard}>
-        <Text style={styles.habitName}>{item.name}</Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}><Text style={styles.statValue}>{currentStreak}</Text><Text style={styles.statLabel}>Sequência</Text></View>
-          <View style={styles.statBox}><Text style={styles.statValue}>{bestStreak}</Text><Text style={styles.statLabel}>Recorde</Text></View>
-          <View style={styles.statBox}><Text style={styles.statValue}>{successRate}%</Text><Text style={styles.statLabel}>Sucesso</Text></View>
-        </View>
-        <View style={styles.calendarContainer}><Calendar current={dayjs().format('YYYY-MM-DD')} markedDates={markedDates} theme={calendarTheme} /></View>
-
-        {entriesWithNotesOrPhotos.length > 0 && (
-          <View style={styles.journalContainer}>
-            <Text style={styles.journalTitle}>Diário do Hábito</Text>
-            {entriesWithNotesOrPhotos.map(([date, data]) => (
-              <View key={date} style={styles.journalEntry}>
-                <Text style={styles.journalDate}>{dayjs(date).format('DD/MM/YYYY')}</Text>
-                {data.photoUri && <Image source={{ uri: data.photoUri }} style={styles.photo} />}
-                {data.note && <Text style={styles.noteText}>"{data.note}"</Text>}
-              </View>
-            ))}
+      <Animated.View layout={Layout.springify()}>
+        <LinearGradient colors={['#F9FAFB', '#E5E7EB']} style={styles.habitCard}>
+          <Text style={styles.habitName}>{item.name}</Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}><Text style={styles.statValue}>{currentStreak}</Text><Text style={styles.statLabel}>Sequência</Text></View>
+            <View style={styles.statBox}><Text style={styles.statValue}>{bestStreak}</Text><Text style={styles.statLabel}>Recorde</Text></View>
+            <View style={styles.statBox}><Text style={styles.statValue}>{successRate}%</Text><Text style={styles.statLabel}>Sucesso</Text></View>
           </View>
-        )}
-      </View>
+          <View style={styles.calendarContainer}><Calendar current={dayjs().format('YYYY-MM-DD')} markedDates={markedDates} theme={calendarTheme} /></View>
+
+          {entriesWithContent.length > 0 && (
+            <View style={styles.journalContainer}>
+              <Text style={styles.journalTitle}>Diário</Text>
+              {entriesWithContent.map(([date, data]) => (
+                <View key={date} style={styles.journalEntry}>
+                  <Text style={styles.journalDate}>{dayjs(date).format('DD/MM/YYYY')}</Text>
+                  {data.photoUri && <Image source={{ uri: data.photoUri }} style={styles.photo} />}
+                  {data.note && <Text style={styles.noteText}>"{data.note}"</Text>}
+                </View>
+              ))}
+            </View>
+          )}
+        </LinearGradient>
+      </Animated.View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#8E2DE2', '#4A00E0']} style={styles.container}>
       <Text style={styles.title}>Meu Progresso</Text>
       <FlatList
         data={habits}
@@ -98,37 +97,34 @@ export default function ProgressScreen() {
         ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.emptyText}>Sem progresso para mostrar.</Text></View>}
         contentContainerStyle={styles.listContentContainer}
       />
-    </View>
+    </LinearGradient>
   );
 }
 
 const calendarTheme = {
-  calendarBackground: '#fff',
-  textSectionTitleColor: '#b6c1cd',
-  selectedDayBackgroundColor: '#34C759',
-  selectedDayTextColor: '#ffffff',
-  todayTextColor: '#007AFF',
-  dayTextColor: '#2d4150',
-  arrowColor: '#007AFF',
+  calendarBackground: 'transparent', textSectionTitleColor: '#6B7280',
+  selectedDayBackgroundColor: '#10B981', selectedDayTextColor: '#ffffff',
+  todayTextColor: '#EF4444', dayTextColor: '#1F2937', arrowColor: '#4A00E0',
+  monthTextColor: '#1F2937', textMonthFontWeight: 'bold',
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f2f5' },
-  title: { fontSize: 24, fontWeight: 'bold', margin: 20, marginBottom: 10, textAlign: 'center', color: '#333' },
+  container: { flex: 1 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginVertical: 20, marginTop: 40 },
   listContentContainer: { paddingHorizontal: 10, paddingBottom: 20 },
-  habitCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 20, marginVertical: 10, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
-  habitName: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#eee', paddingVertical: 10 },
+  habitCard: { borderRadius: 15, padding: 20, marginVertical: 10, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  habitName: { fontSize: 22, fontWeight: 'bold', color: '#1F2937', marginBottom: 15 },
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#D1D5DB', paddingVertical: 15 },
   statBox: { alignItems: 'center' },
-  statValue: { fontSize: 22, fontWeight: 'bold', color: '#007AFF' },
-  statLabel: { fontSize: 12, color: '#666', marginTop: 2 },
+  statValue: { fontSize: 24, fontWeight: 'bold', color: '#4A00E0' },
+  statLabel: { fontSize: 14, color: '#6B7280', marginTop: 4 },
   calendarContainer: { borderRadius: 10, overflow: 'hidden', marginBottom: 15 },
-  journalContainer: { marginTop: 10, borderTopWidth: 1, borderColor: '#eee', paddingTop: 15 },
-  journalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-  journalEntry: { marginBottom: 15 },
-  journalDate: { fontSize: 14, fontWeight: '600', color: '#555', marginBottom: 5 },
-  photo: { width: '100%', height: 150, borderRadius: 8, marginBottom: 5 },
-  noteText: { fontStyle: 'italic', color: '#555', backgroundColor: '#f9f9f9', padding: 10, borderRadius: 5 },
-  emptyContainer: { alignItems: 'center', marginTop: 50 },
-  emptyText: { fontSize: 18, color: '#888' },
+  journalContainer: { marginTop: 10, borderTopWidth: 1, borderColor: '#D1D5DB', paddingTop: 15 },
+  journalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 10 },
+  journalEntry: { marginBottom: 15, backgroundColor: 'rgba(255,255,255,0.5)', padding: 10, borderRadius: 10 },
+  journalDate: { fontSize: 14, fontWeight: '600', color: '#4B5563', marginBottom: 8 },
+  photo: { width: '100%', height: 150, borderRadius: 8, marginBottom: 8 },
+  noteText: { fontStyle: 'italic', color: '#374151' },
+  emptyContainer: { alignItems: 'center', marginTop: 100 },
+  emptyText: { fontSize: 18, color: '#fff', opacity: 0.8 },
 });
